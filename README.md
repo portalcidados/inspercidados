@@ -32,8 +32,8 @@ remotes::install_github("insper-cidades/inspercidados")
 
 ### Available Data
 
-| Dataset | Descrição | Anos | Tamanho |
-|---------|-----------|------|---------|
+| Dataset | Descrição | Anos |
+|---------|-----------|------|
 | `iptu_sp` | Imposto Predial e Territorial Urbano | 2010-2024
 | `itbi_sp` | Imposto sobre Transmissão de Bens Imóveis | 2010-2024
 | `alvaras_sp` | Alvarás de Construção | 2015-2024
@@ -79,17 +79,6 @@ Desenvolvido pelo [Insper Cidades](https://www.insper.edu.br/pt/pesquisa/centro-
 # Via GitHub (recomendado)
 remotes::install_github("insper-cidades/inspercidados")
 ```
-
-### Dados Disponíveis
-
-#### São Paulo (SP)
-| Dataset | Descrição | Anos |
-|---------|-----------|------|
-| `iptu_sp` | Imposto Predial e Territorial Urbano | 2010-2024
-| `itbi_sp` | Imposto sobre Transmissão de Bens Imóveis | 2010-2024
-| `alvaras_sp` | Alvarás de Construção | 2015-2024
-| `pemob` | Pesquisa de Mobilidade (SIMU) | 2019-2024 
-| `pod_sp` | Pesquisa Origem-Destino | 2017, 2022
 
 ### Exemplo de Uso
 
