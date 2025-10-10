@@ -83,8 +83,8 @@ remotes::install_github("insper-cidades/inspercidados")
 ### Dados Disponíveis
 
 #### São Paulo (SP)
-| Dataset | Descrição | Anos | Tamanho |
-|---------|-----------|------|---------|
+| Dataset | Descrição | Anos |
+|---------|-----------|------|
 | `iptu_sp` | Imposto Predial e Territorial Urbano | 2010-2024
 | `itbi_sp` | Imposto sobre Transmissão de Bens Imóveis | 2010-2024
 | `alvaras_sp` | Alvarás de Construção | 2015-2024
