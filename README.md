@@ -60,7 +60,7 @@ cite_dataset("iptu_sp", year = 2024, format = "bibtex")
 - [Research Best Practices](./RESEARCH_GUIDELINES.md)
 - [Contributing Guide](./CONTRIBUTING.md)
 
---
+---
 
 ### Sobre
 
