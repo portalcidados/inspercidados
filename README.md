@@ -6,7 +6,7 @@
 ![R Version](https://img.shields.io/badge/R-%3E%3D%204.0.0-blue)
 ![GitHub Stars](https://img.shields.io/github/stars/insper-cidades/inspercidados?style=social)
 
-**[English](#english) | [Português](#português)**
+**[English](#About) | [Português](#Sobre)**
 
 </div>
 
