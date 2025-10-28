@@ -1,0 +1,61 @@
+{
+  "id": "pemob",
+  "title": "Pesquisa de Mobilidade Urbana - PEMOB",
+  "description": "Pesquisa sobre padrões de mobilidade urbana na cidade de São Paulo, incluindo modos de transporte, tempos de deslocamento e preferências dos usuários",
+  "version": "1.0.0",
+  "authors": [
+    "Insper Cidades"
+  ],
+  "contact": "cidades@insper.edu.br",
+  "contributors": [
+    {
+      "name": "Pesquisador Original",
+      "role": "Processamento inicial dos dados",
+      "email": "pesquisador@insper.edu.br"
+    },
+    {
+      "name": "Seu Nome",
+      "role": "Padronização e validação",
+      "email": "seu.email@insper.edu.br"
+    }
+  ],
+  "categories": [
+    "Mobilidade Urbana",
+    "Transporte Público",
+    "Pesquisa OD"
+  ],
+  "keywords": [
+    "mobilidade",
+    "transporte",
+    "são paulo",
+    "pemob",
+    "origem destino"
+  ],
+  "geographic_coverage": "São Paulo - SP, Brasil",
+  "temporal_coverage": "2023",
+  "producer": "Metrô-SP / Secretaria dos Transportes Metropolitanos",
+  "source_url": "https://transparencia.metrosp.com.br/",
+  "license": "CC BY 4.0",
+  "license_url": "https://creativecommons.org/licenses/by/4.0/",
+  "dataverse_doi": "10.5072/FK2/XXXXX",
+  "dataverse_server": "dataverse.insper.edu.br",
+  "structure_type": "single_doi",
+  "github_repo": "https://github.com/insper-cidades/inspercidados",
+  "processing_scripts": "https://github.com/insper-cidades/inspercidados/tree/main/data-raw/pemob",
+  "yearly": false,
+  "available_years": null,
+  "file_mapping": null,
+  "doi_mapping": null,
+  "files": {
+    "pemob": {
+      "filename": "pemob.parquet",
+      "size_mb": 45.3,
+      "rows": 150000,
+      "columns": 47,
+      "checksum": "sha256:abcd1234..."
+    }
+  },
+  "last_update": "2025-01-17",
+  "update_frequency": "Quadrienal",
+  "citation": "Insper Cidades (2025). Pesquisa de Mobilidade Urbana - PEMOB. Version 1.0.0. DOI: 10.5072/FK2/XXXXX"
+}
