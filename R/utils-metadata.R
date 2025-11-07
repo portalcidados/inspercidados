@@ -1,75 +1,223 @@
 #' List available datasets
 #'
-#' Scans the metadata directory to list all available datasets.
+#' Lists datasets available through inspercidados package.
+#' Includes datasets with friendly aliases and optionally searches Dataverse.
 #'
-#' @return A data.frame with columns: id, title, yearly, temporal_coverage
+#' @param search Character. Optional search query to filter datasets (searches Dataverse)
+#' @param collection Character. Dataverse collection alias to search (e.g., "insper-cidades")
+#' @param server Character. Dataverse server URL (optional)
+#' @param include_search Logical. Include Dataverse search results? (default: FALSE)
+#'
+#' @return A data.frame with columns: alias, doi, title (if include_search=TRUE)
 #' @export
 #'
 #' @examples
 #' \dontrun{
-#' # List all available datasets
+#' # List all datasets with aliases
 #' list_available_datasets()
+#'
+#' # Search Dataverse for datasets
+#' list_available_datasets(search = "IPTU", include_search = TRUE)
+#'
+#' # Search specific collection
+#' list_available_datasets(collection = "insper-cidades", include_search = TRUE)
 #' }
-list_available_datasets <- function() {
-  metadata_dir <- system.file("metadata", package = "inspercidados")
+list_available_datasets <- function(search = NULL,
+                                   collection = NULL,
+                                   server = NULL,
+                                   include_search = FALSE) {
 
-  if (!dir.exists(metadata_dir) || metadata_dir == "") {
+  # Always show aliases
+  aliases <- get_aliases()
+
+  if (length(aliases) == 0 && !include_search) {
+    cli::cli_alert_warning("No dataset aliases found")
+    return(data.frame(
+      alias = character(0),
+      doi = character(0),
+      stringsAsFactors = FALSE
+    ))
+  }
+
+  # Create data frame from aliases
+  alias_df <- if (length(aliases) > 0) {
+    data.frame(
+      alias = names(aliases),
+      doi = unlist(aliases, use.names = FALSE),
+      stringsAsFactors = FALSE
+    )
+  } else {
+    data.frame(
+      alias = character(0),
+      doi = character(0),
+      stringsAsFactors = FALSE
+    )
+  }
+
+  # If no search requested, return aliases only
+  if (!include_search && is.null(search) && is.null(collection)) {
+    return(alias_df)
+  }
+
+  # Search Dataverse
+  if (is.null(server)) {
+    server <- Sys.getenv("DATAVERSE_SERVER", unset = "dataverse.datascience.insper.edu.br")
+  }
+
+  tryCatch({
+    # Build search query
+    query_params <- list(type = "dataset", per_page = 100)
+
+    if (!is.null(search)) {
+      query_params$q <- search
+    }
+    if (!is.null(collection)) {
+      query_params$subtree <- collection
+    }
+
+    cli::cli_alert_info("Searching Dataverse at {.url {server}}...")
+
+    # Perform search
+    results <- do.call(dataverse::dataverse_search, c(query_params, list(server = server)))
+
+    if (is.null(results) || length(results) == 0) {
+      cli::cli_alert_warning("No results found in Dataverse")
+      return(alias_df)
+    }
+
+    # Extract DOIs and titles
+    search_df <- data.frame(
+      doi = sapply(results, function(x) x$global_id %||% NA),
+      title = sapply(results, function(x) x$name %||% NA),
+      description = sapply(results, function(x) x$description %||% NA),
+      published_at = sapply(results, function(x) x$published_at %||% NA),
+      stringsAsFactors = FALSE
+    )
+
+    # Clean DOI format (remove "doi:" prefix)
+    search_df$doi <- gsub("^doi:", "", search_df$doi, ignore.case = TRUE)
+
+    # Merge with aliases (mark which ones have aliases)
+    search_df$alias <- sapply(search_df$doi, function(doi) {
+      idx <- which(alias_df$doi == doi)
+      if (length(idx) > 0) alias_df$alias[idx[1]] else NA
+    })
+
+    # Reorder columns
+    search_df <- search_df[, c("alias", "doi", "title", "description", "published_at")]
+
+    cli::cli_alert_success("Found {nrow(search_df)} dataset(s) in Dataverse")
+
+    return(search_df)
+
+  }, error = function(e) {
+    cli::cli_alert_warning("Could not search Dataverse: {e$message}")
+    cli::cli_alert_info("Returning aliases only")
+    return(alias_df)
+  })
+}
+
+
+#' Get alias registry
+#'
+#' Reads the aliases.json file that maps friendly names to DOIs.
+#'
+#' @return Named list of aliases (name -> DOI)
+#' @noRd
+get_aliases <- function() {
+  alias_file <- system.file("aliases.json", package = "inspercidados")
+
+  if (!file.exists(alias_file) || alias_file == "") {
     # During development, use relative path
-    metadata_dir <- file.path("inst", "metadata")
-    if (!dir.exists(metadata_dir)) {
-      cli::cli_alert_warning("No metadata directory found")
-      return(data.frame(
-        id = character(0),
-        title = character(0),
-        yearly = logical(0),
-        temporal_coverage = character(0),
-        stringsAsFactors = FALSE
-      ))
+    alias_file <- file.path("inst", "aliases.json")
+    if (!file.exists(alias_file)) {
+      return(list())
     }
   }
 
-  metadata_files <- list.files(metadata_dir, pattern = "\\.json$", full.names = TRUE)
-
-  if (length(metadata_files) == 0) {
-    cli::cli_alert_warning("No metadata files found in {.path {metadata_dir}}")
-    return(data.frame(
-      id = character(0),
-      title = character(0),
-      yearly = logical(0),
-      temporal_coverage = character(0),
-      stringsAsFactors = FALSE
-    ))
-  }
-
-  datasets <- lapply(metadata_files, function(file) {
-    tryCatch({
-      meta <- jsonlite::fromJSON(file, simplifyVector = TRUE)
-      data.frame(
-        id = meta$id,
-        title = meta$title,
-        yearly = isTRUE(meta$yearly),
-        temporal_coverage = as.character(meta$temporal_coverage),
-        stringsAsFactors = FALSE
-      )
-    }, error = function(e) {
-      cli::cli_alert_warning("Error reading {.file {basename(file)}}: {e$message}")
-      NULL
-    })
+  tryCatch({
+    aliases <- jsonlite::fromJSON(alias_file, simplifyVector = TRUE)
+    return(as.list(aliases))
+  }, error = function(e) {
+    cli::cli_alert_warning("Could not read aliases.json: {e$message}")
+    return(list())
   })
+}
 
-  datasets <- do.call(rbind, Filter(Negate(is.null), datasets))
 
-  if (is.null(datasets) || nrow(datasets) == 0) {
-    return(data.frame(
-      id = character(0),
-      title = character(0),
-      yearly = logical(0),
-      temporal_coverage = character(0),
-      stringsAsFactors = FALSE
+#' Check if string is a DOI
+#'
+#' @param x Character. String to check
+#' @return Logical. TRUE if x appears to be a DOI
+#' @noRd
+is_doi <- function(x) {
+  if (!is.character(x) || length(x) != 1) return(FALSE)
+
+  # Check for DOI patterns:
+  # - Starts with "10." (standard DOI prefix)
+  # - Starts with "doi:" prefix
+  grepl("^(doi:)?10\\.", x, ignore.case = TRUE)
+}
+
+
+#' Resolve dataset identifier to DOI
+#'
+#' Takes a dataset identifier and resolves it to a DOI.
+#' Handles: DOI strings, alias names, or metadata IDs (legacy).
+#'
+#' @param identifier Character. Dataset identifier (DOI, alias, or metadata ID)
+#' @return List with: doi, source ("doi", "alias", or "metadata"), identifier
+#' @noRd
+resolve_identifier <- function(identifier) {
+  # Case 1: Already a DOI
+  if (is_doi(identifier)) {
+    # Normalize DOI format (remove "doi:" prefix if present)
+    doi <- sub("^doi:", "", identifier, ignore.case = TRUE)
+    return(list(
+      doi = doi,
+      source = "doi",
+      identifier = identifier
     ))
   }
 
-  return(datasets)
+  # Case 2: Check if it's an alias
+  aliases <- get_aliases()
+  if (identifier %in% names(aliases)) {
+    return(list(
+      doi = aliases[[identifier]],
+      source = "alias",
+      identifier = identifier
+    ))
+  }
+
+  # Case 3: Check if it's a legacy metadata ID
+  metadata_dir <- system.file("metadata", package = "inspercidados")
+  if (!dir.exists(metadata_dir) || metadata_dir == "") {
+    metadata_dir <- file.path("inst", "metadata")
+  }
+
+  metadata_file <- file.path(metadata_dir, paste0(identifier, ".json"))
+  if (file.exists(metadata_file)) {
+    cli::cli_alert_warning(
+      "Using legacy metadata file for '{identifier}'. ",
+      "Consider adding to aliases.json instead."
+    )
+    metadata <- get_metadata(identifier)
+    return(list(
+      doi = metadata$dataverse_doi,
+      source = "metadata",
+      identifier = identifier,
+      metadata = metadata
+    ))
+  }
+
+  # Case 4: Not found
+  stop(
+    "Could not resolve identifier '", identifier, "'.\n",
+    "Available aliases: ", paste(names(aliases), collapse = ", "), "\n",
+    "Available metadata: ", paste(list_available_datasets()$id, collapse = ", "),
+    call. = FALSE
+  )
 }
 
 

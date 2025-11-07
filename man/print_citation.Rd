@@ -4,12 +4,14 @@
 \alias{print_citation}
 \title{Print citation information}
 \usage{
-print_citation(name, year = NULL)
+print_citation(name, year = NULL, server = NULL)
 }
 \arguments{
-\item{name}{Character. Dataset name}
+\item{name}{Character. Dataset identifier (DOI, alias, or metadata ID)}
 
 \item{year}{Numeric. Year (if applicable)}
+
+\item{server}{Character. Dataverse server URL (optional)}
 }
 \description{
 Print citation information

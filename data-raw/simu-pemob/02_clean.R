@@ -1,5 +1,6 @@
 library(readxl)
-library(tidyverse)
+library(dplyr)
+library(tidyr)
 library(cli)
 import::from(here, here)
 import::from(readxl, read_excel)
@@ -9,12 +10,10 @@ header_to_dictionary <- function(x) {
   as_tibble(as.data.frame(t(as.matrix(x))))
 }
 
-
 # Data --------------------------------------------------------------------
 
 munis <- geobr::read_municipality(year = 2022, showProgress = FALSE)
 dim_muni <- as_tibble(sf::st_drop_geometry(munis))
-
 
 ## Dictionaries ------------------------------------------------------------
 

@@ -4,7 +4,7 @@
 \alias{get_dataset_info}
 \title{Get dataset information from Dataverse}
 \usage{
-get_dataset_info(dataset_id, year = NULL)
+get_dataset_info(dataset_id, year = NULL, server = NULL)
 }
 \arguments{
 \item{dataset_id}{Character. Dataset identifier}

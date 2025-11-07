@@ -1,0 +1,461 @@
+---
+title: "inspercidados Package Testing"
+subtitle: "Comprehensive functionality tests"
+author: "inspercidados"
+date: "`r Sys.Date()`"
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    code-fold: false
+    embed-resources: true
+editor: visual
+---
+
+# Setup
+
+```{r setup, error=TRUE}
+library(inspercidados)
+
+# Real DOIs from dataverse.insper.edu.br
+dois <- c(
+  geoses = "10.60873/FK2/7IXFPX",           # GeoSES
+  ilhas_calor = "10.60873/FK2/NQA7LY",      # Ilhas de Calor
+  pop_censo = "10.60873/FK2/GTO7DD"         # População e domicílios (censo)
+)
+
+cat("✓ Package loaded successfully\n")
+cat("Testing with", length(dois), "real DOIs from Insper Dataverse\n")
+```
+
+# 1. List Available Datasets
+
+## 1.1 List aliases only
+
+```{r test-list-aliases, error=TRUE}
+cat("=== Testing list_available_datasets() ===\n\n")
+
+aliases <- list_available_datasets()
+print(aliases)
+cat("\nFound", nrow(aliases), "datasets with aliases\n")
+```
+
+## 1.2 List with Dataverse search
+
+```{r test-list-search, error=TRUE}
+cat("=== Testing Dataverse search ===\n\n")
+
+# Search for datasets
+search_results <- list_available_datasets(
+  search = "GeoSES",
+  include_search = TRUE
+)
+print(search_results)
+```
+
+## 1.3 Search by collection
+
+```{r test-list-collection, error=TRUE}
+cat("=== Testing collection search ===\n\n")
+
+# Try to search a collection (may need to adjust collection name)
+collection_results <- list_available_datasets(
+  collection = "insper-cidades",
+  include_search = TRUE
+)
+print(collection_results)
+```
+
+# 2. Identifier Resolution
+
+## 2.1 Test DOI detection
+
+```{r test-doi-detection, error=TRUE}
+cat("=== Testing DOI detection ===\n\n")
+
+test_strings <- c(
+  "10.60873/FK2/7IXFPX",
+  "doi:10.60873/FK2/7IXFPX",
+  "iptu_sp",
+  "not-a-doi"
+)
+
+for (s in test_strings) {
+  result <- inspercidados:::is_doi(s)
+  cat(sprintf("is_doi('%s'): %s\n", s, result))
+}
+```
+
+## 2.2 Test identifier resolution
+
+```{r test-resolve-identifier, error=TRUE}
+cat("=== Testing identifier resolution ===\n\n")
+
+# Test with DOI
+cat("1. Resolving DOI:\n")
+resolved_doi <- inspercidados:::resolve_identifier(dois["geoses"])
+cat("  Input:", dois["geoses"], "\n")
+cat("  DOI:", resolved_doi$doi, "\n")
+cat("  Source:", resolved_doi$source, "\n\n")
+
+# Test with alias
+cat("2. Resolving alias:\n")
+resolved_alias <- inspercidados:::resolve_identifier("iptu_sp")
+cat("  Input: iptu_sp\n")
+cat("  DOI:", resolved_alias$doi, "\n")
+cat("  Source:", resolved_alias$source, "\n\n")
+
+# Test with invalid identifier (should error)
+cat("3. Resolving invalid identifier (should error):\n")
+tryCatch({
+  inspercidados:::resolve_identifier("invalid_dataset_xyz")
+}, error = function(e) {
+  cat("  Error (expected):", e$message, "\n")
+})
+```
+
+# 3. List Files in Datasets
+
+## 3.1 List files using DOI
+
+```{r test-list-files-doi, error=TRUE}
+cat("=== Testing list_files() with DOI ===\n\n")
+
+for (name in names(dois)) {
+  cat("\nDataset:", name, "\n")
+  cat("DOI:", dois[name], "\n")
+
+  tryCatch({
+    files <- list_files(dois[name])
+    print(files)
+  }, error = function(e) {
+    cat("Error:", e$message, "\n")
+  })
+}
+```
+
+## 3.2 List files using alias
+
+```{r test-list-files-alias, error=TRUE}
+cat("=== Testing list_files() with alias ===\n\n")
+
+tryCatch({
+  files_alias <- list_files("iptu_sp")
+  print(files_alias)
+}, error = function(e) {
+  cat("Error:", e$message, "\n")
+})
+```
+
+# 4. Get Dataset Information
+
+## 4.1 Get dataset info with DOI
+
+```{r test-get-info, error=TRUE}
+cat("=== Testing get_dataset_info() ===\n\n")
+
+for (name in names(dois)) {
+  cat("\n", strrep("=", 60), "\n")
+  cat("Dataset:", name, "\n")
+  cat(strrep("=", 60), "\n")
+
+  tryCatch({
+    info <- get_dataset_info(dois[name])
+    cat("DOI:", info$doi, "\n")
+    cat("Server:", info$server, "\n")
+    cat("Dataverse version:", info$dataverse_version, "\n")
+    cat("Publication date:", info$publication_date, "\n")
+
+    if (!is.null(info$files)) {
+      cat("\nFiles:\n")
+      print(head(info$files, 3))
+    }
+  }, error = function(e) {
+    cat("Error:", e$message, "\n")
+  })
+}
+```
+
+# 5. Download Datasets
+
+## 5.1 Download using DOI (first dataset)
+
+```{r test-download-doi, error=TRUE}
+cat("=== Testing get_dataset() with DOI ===\n\n")
+
+cat("Attempting to download GeoSES dataset...\n")
+tryCatch({
+  data_geoses <- get_dataset(dois["geoses"])
+
+  cat("\n✓ Dataset loaded successfully!\n")
+  cat("Dimensions:", nrow(data_geoses), "rows ×", ncol(data_geoses), "columns\n")
+  cat("\nFirst few column names:\n")
+  print(head(names(data_geoses), 10))
+
+  cat("\nDataset attributes:\n")
+  cat("  Source:", attr(data_geoses, "source"), "\n")
+  cat("  Dataset:", attr(data_geoses, "dataset"), "\n")
+  cat("  DOI:", attr(data_geoses, "doi"), "\n")
+  cat("  Filename:", attr(data_geoses, "filename"), "\n")
+  cat("  Download date:", attr(data_geoses, "download_date"), "\n")
+
+}, error = function(e) {
+  cat("Error downloading dataset:", e$message, "\n")
+})
+```
+
+## 5.2 Download using alias
+
+```{r test-download-alias, error=TRUE}
+cat("=== Testing get_dataset() with alias ===\n\n")
+
+tryCatch({
+  data_alias <- get_dataset("iptu_sp")
+
+  cat("\n✓ Dataset loaded successfully!\n")
+  cat("Dimensions:", nrow(data_alias), "rows ×", ncol(data_alias), "columns\n")
+
+}, error = function(e) {
+  cat("Error:", e$message, "\n")
+})
+```
+
+## 5.3 Download with specific filename
+
+```{r test-download-filename, error=TRUE}
+cat("=== Testing get_dataset() with specific filename ===\n\n")
+
+# First, list files to see what's available
+tryCatch({
+  files <- list_files(dois["pop_censo"])
+  cat("Available files:\n")
+  print(files)
+
+  if (nrow(files) > 0) {
+    target_file <- files$filename[1]
+    cat("\nAttempting to download file:", target_file, "\n")
+
+    data_specific <- get_dataset(dois["pop_censo"], filename = target_file)
+    cat("✓ Downloaded successfully!\n")
+    cat("Dimensions:", nrow(data_specific), "rows ×", ncol(data_specific), "columns\n")
+  }
+}, error = function(e) {
+  cat("Error:", e$message, "\n")
+})
+```
+
+## 5.4 Test force download
+
+```{r test-force-download, error=TRUE}
+cat("=== Testing force_download parameter ===\n\n")
+
+tryCatch({
+  # Download with force (should re-download even if cached)
+  data_force <- get_dataset(dois["geoses"], force_download = TRUE)
+  cat("✓ Force download completed\n")
+  cat("Dimensions:", nrow(data_force), "rows ×", ncol(data_force), "columns\n")
+}, error = function(e) {
+  cat("Error:", e$message, "\n")
+})
+```
+
+# 6. Citations
+
+## 6.1 Text citation with DOI
+
+```{r test-citation-text, error=TRUE}
+cat("=== Testing cite_dataset() - text format ===\n\n")
+
+for (name in names(dois)) {
+  cat("\nDataset:", name, "\n")
+  cat(strrep("-", 60), "\n")
+
+  tryCatch({
+    citation <- cite_dataset(dois[name], format = "text")
+    cat(citation, "\n")
+  }, error = function(e) {
+    cat("Error:", e$message, "\n")
+  })
+}
+```
+
+## 6.2 BibTeX citation
+
+```{r test-citation-bibtex, error=TRUE}
+cat("=== Testing cite_dataset() - bibtex format ===\n\n")
+
+tryCatch({
+  bibtex <- cite_dataset(dois["geoses"], format = "bibtex")
+  cat(bibtex, "\n")
+}, error = function(e) {
+  cat("Error:", e$message, "\n")
+})
+```
+
+## 6.3 RIS citation
+
+```{r test-citation-ris, error=TRUE}
+cat("=== Testing cite_dataset() - RIS format ===\n\n")
+
+tryCatch({
+  ris <- cite_dataset(dois["geoses"], format = "ris")
+  cat(ris, "\n")
+}, error = function(e) {
+  cat("Error:", e$message, "\n")
+})
+```
+
+## 6.4 Print citation
+
+```{r test-print-citation, error=TRUE}
+cat("=== Testing print_citation() ===\n\n")
+
+tryCatch({
+  print_citation(dois["geoses"])
+}, error = function(e) {
+  cat("Error:", e$message, "\n")
+})
+```
+
+## 6.5 Package citation
+
+```{r test-package-citation, error=TRUE}
+cat("=== Testing cite_package() ===\n\n")
+
+cat("Text format:\n")
+cite_package("text")
+
+cat("\n\nBibTeX format:\n")
+cite_package("bibtex")
+```
+
+# 7. Cache Management
+
+## 7.1 List cached datasets
+
+```{r test-list-cache, error=TRUE}
+cat("=== Testing list_cached_datasets() ===\n\n")
+
+cached <- list_cached_datasets()
+print(cached)
+cat("\nTotal cached datasets:", nrow(cached), "\n")
+cat("Total cache size:", sum(cached$size_mb, na.rm = TRUE), "MB\n")
+```
+
+## 7.2 Get cache directory
+
+```{r test-cache-dir, error=TRUE}
+cat("=== Testing get_cache_dir() ===\n\n")
+
+cache_dir <- inspercidados:::get_cache_dir()
+cat("Cache directory:", cache_dir, "\n")
+cat("Exists:", dir.exists(cache_dir), "\n")
+
+if (dir.exists(cache_dir)) {
+  files <- list.files(cache_dir, pattern = "\\.parquet$")
+  cat("Files in cache:", length(files), "\n")
+}
+```
+
+## 7.3 Clear specific dataset cache (commented out to preserve downloads)
+
+```{r test-clear-cache, error=TRUE, eval=FALSE}
+cat("=== Testing clear_cache() ===\n\n")
+
+# Clear a specific dataset (uncomment to test)
+# clear_cache("geoses")
+
+# Clear all cache (uncomment to test)
+# clear_cache()
+
+cat("Cache clearing tests skipped to preserve downloads.\n")
+cat("Uncomment code above to test cache clearing.\n")
+```
+
+# 8. Edge Cases and Error Handling
+
+## 8.1 Invalid DOI
+
+```{r test-invalid-doi, error=TRUE}
+cat("=== Testing with invalid DOI ===\n\n")
+
+tryCatch({
+  data_invalid <- get_dataset("10.1234/INVALID/DOI")
+}, error = function(e) {
+  cat("Error (expected):", e$message, "\n")
+})
+```
+
+## 8.2 Non-existent alias
+
+```{r test-invalid-alias, error=TRUE}
+cat("=== Testing with non-existent alias ===\n\n")
+
+tryCatch({
+  data_invalid <- get_dataset("nonexistent_dataset_xyz")
+}, error = function(e) {
+  cat("Error (expected):", e$message, "\n")
+})
+```
+
+## 8.3 Invalid citation format
+
+```{r test-invalid-format, error=TRUE}
+cat("=== Testing with invalid citation format ===\n\n")
+
+tryCatch({
+  citation <- cite_dataset(dois["geoses"], format = "invalid_format")
+}, error = function(e) {
+  cat("Error (expected):", e$message, "\n")
+})
+```
+
+# 9. Show Citation Option
+
+## 9.1 Download with citation display
+
+```{r test-show-citation, error=TRUE}
+cat("=== Testing show_citation parameter ===\n\n")
+
+tryCatch({
+  data_with_citation <- get_dataset(dois["geoses"], show_citation = TRUE)
+  cat("\n✓ Dataset loaded with citation displayed\n")
+}, error = function(e) {
+  cat("Error:", e$message, "\n")
+})
+```
+
+# 10. Summary
+
+```{r test-summary, error=TRUE}
+cat("=== Testing Summary ===\n\n")
+
+cat("Package version:", as.character(packageVersion("inspercidados")), "\n")
+cat("R version:", R.version.string, "\n")
+cat("\n")
+
+cat("Available functions:\n")
+cat("  - list_available_datasets()\n")
+cat("  - list_files()\n")
+cat("  - get_dataset()\n")
+cat("  - get_dataset_info()\n")
+cat("  - cite_dataset()\n")
+cat("  - print_citation()\n")
+cat("  - cite_package()\n")
+cat("  - list_cached_datasets()\n")
+cat("  - clear_cache()\n")
+cat("\n")
+
+cat("Tested with", length(dois), "real DOIs:\n")
+for (name in names(dois)) {
+  cat("  -", name, ":", dois[name], "\n")
+}
+
+cat("\n✓ All tests completed!\n")
+```
+
+# Session Info
+
+```{r session-info, error=TRUE}
+sessionInfo()
+```

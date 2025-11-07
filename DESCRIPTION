@@ -23,7 +23,10 @@ Imports:
     dataverse (>= 0.3.15),
     jsonlite,
     rappdirs,
-    cli
+    cli,
+    readr,
+    sf,
+    readxl
 Suggests:
     knitr,
     rmarkdown,

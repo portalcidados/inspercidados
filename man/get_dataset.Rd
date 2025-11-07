@@ -4,37 +4,80 @@
 \alias{get_dataset}
 \title{Get dataset from Insper Cidades collection}
 \usage{
-get_dataset(name, year = NULL, show_citation = FALSE, force_download = FALSE)
+get_dataset(
+  name,
+  year = NULL,
+  filename = NULL,
+  file_pattern = NULL,
+  file_type = NULL,
+  show_citation = FALSE,
+  force_download = FALSE,
+  server = NULL
+)
 }
 \arguments{
-\item{name}{Character. Dataset name (e.g., "iptu_sp", "itbi_sp", "pemob")}
+\item{name}{Character. Dataset identifier (DOI, alias, or metadata ID)}
 
-\item{year}{Numeric. Year of the dataset (optional for some datasets)}
+\item{year}{Numeric. Year of the dataset (optional, used for filename matching)}
+
+\item{filename}{Character. Specific filename to download if dataset has multiple files}
+
+\item{file_pattern}{Character. Regex pattern to match files (useful for ZIP archives)}
+
+\item{file_type}{Character. Expected file type: "csv", "parquet", "gpkg", "xlsx" (optional)}
 
 \item{show_citation}{Logical. Display citation information after loading?}
 
 \item{force_download}{Logical. Force re-download even if cached?}
+
+\item{server}{Character. Dataverse server URL (optional, defaults to env var or Insper)}
 }
 \value{
-A tibble/data.frame with the requested dataset
+A tibble (for CSV/Parquet/XLSX) or sf object (for GPKG)
 }
 \description{
 Downloads and loads datasets from the Insper Cidades collection via Dataverse.
 Data is automatically cached locally to avoid repeated downloads.
 }
+\details{
+Supports multiple file formats:
+\itemize{
+\item CSV files (standalone or in ZIP archives)
+\item Parquet files (standalone or in ZIP archives)
+\item GeoPackage files (GPKG) for spatial data
+\item Excel files (XLSX)
+\item ZIP archives containing any of the above
+}
+
+Accepts multiple identifier types:
+\itemize{
+\item DOI (e.g., "10.60873/FK2/7IXFPX" or "doi:10.60873/FK2/7IXFPX")
+\item Friendly alias (e.g., "iptu_sp", "pemob", "itbi_sp")
+\item Legacy metadata ID (for backward compatibility)
+}
+}
 \examples{
 \dontrun{
-# Load IPTU data for 2024
-iptu <- get_dataset("iptu_sp", year = 2024)
+# Using friendly alias
+data <- get_dataset("iptu_sp")
 
-# Load PEMOB survey data
-pemob <- get_dataset("pemob")
+# Using DOI directly
+data <- get_dataset("10.60873/FK2/7IXFPX")
+
+# Specify year for filename matching
+data_2024 <- get_dataset("mobility", year = 2024)
+
+# Select specific file from ZIP using pattern
+trips <- get_dataset("mobility", file_pattern = "trips\\\\.csv$")
+
+# Specify file type for better detection
+spatial <- get_dataset("boundaries", file_type = "gpkg")
 
 # Load with citation
-iptu <- get_dataset("iptu_sp", year = 2024, show_citation = TRUE)
+data <- get_dataset("iptu_sp", show_citation = TRUE)
 
 # Force re-download to get latest version
-iptu <- get_dataset("iptu_sp", year = 2024, force_download = TRUE)
+data <- get_dataset("iptu_sp", force_download = TRUE)
 }
 
 }

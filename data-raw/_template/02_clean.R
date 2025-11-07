@@ -21,24 +21,8 @@ library(cli)
 library(readr)
 
 # Setup -----------------------------------------------------------------------
-dir_create(here("processed"))
-dir_create(here("logs"))
-
-log_file <- here("logs", paste0("02_clean_", Sys.Date(), ".log"))
-log_con <- file(log_file, open = "wt")
-sink(log_con, type = "output", split = TRUE)
-sink(log_con, type = "message")
-
+dir_create(here("data/processed"))
 cli_h1("Data Cleaning Process")
-cli_alert_info("Started at {Sys.time()}")
-
-# Load download metadata ------------------------------------------------------
-download_metadata <- readRDS(here("raw", "download_metadata.rds"))
-files_to_process <- download_metadata |>
-  filter(success == TRUE) |>
-  pull(name)
-
-cli_alert_info("Found {length(files_to_process)} file{?s} to process")
 
 # ============================================================================
 # Helper Functions - Customize these for your dataset

@@ -4,17 +4,38 @@
 \alias{list_available_datasets}
 \title{List available datasets}
 \usage{
-list_available_datasets()
+list_available_datasets(
+  search = NULL,
+  collection = NULL,
+  server = NULL,
+  include_search = FALSE
+)
+}
+\arguments{
+\item{search}{Character. Optional search query to filter datasets (searches Dataverse)}
+
+\item{collection}{Character. Dataverse collection alias to search (e.g., "insper-cidades")}
+
+\item{server}{Character. Dataverse server URL (optional)}
+
+\item{include_search}{Logical. Include Dataverse search results? (default: FALSE)}
 }
 \value{
-A data.frame with columns: id, title, yearly, temporal_coverage
+A data.frame with columns: alias, doi, title (if include_search=TRUE)
 }
 \description{
-Scans the metadata directory to list all available datasets.
+Lists datasets available through inspercidados package.
+Includes datasets with friendly aliases and optionally searches Dataverse.
 }
 \examples{
 \dontrun{
-# List all available datasets
+# List all datasets with aliases
 list_available_datasets()
+
+# Search Dataverse for datasets
+list_available_datasets(search = "IPTU", include_search = TRUE)
+
+# Search specific collection
+list_available_datasets(collection = "insper-cidades", include_search = TRUE)
 }
 }

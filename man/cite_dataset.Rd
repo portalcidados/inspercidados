@@ -4,14 +4,16 @@
 \alias{cite_dataset}
 \title{Generate citation for a dataset}
 \usage{
-cite_dataset(name, year = NULL, format = "text")
+cite_dataset(name, year = NULL, format = "text", server = NULL)
 }
 \arguments{
-\item{name}{Character. Dataset name (e.g., "iptu_sp", "pemob")}
+\item{name}{Character. Dataset identifier (DOI, alias, or metadata ID)}
 
-\item{year}{Numeric. Year of the dataset (if applicable)}
+\item{year}{Numeric. Year of the dataset (optional, used for title)}
 
 \item{format}{Character. Citation format: "text", "bibtex", or "ris"}
+
+\item{server}{Character. Dataverse server URL (optional)}
 }
 \value{
 Character. Citation string in the requested format
@@ -20,10 +22,16 @@ Character. Citation string in the requested format
 Creates a properly formatted citation for a dataset from the Insper Cidades
 collection. Supports multiple citation formats (text, BibTeX, RIS).
 }
+\details{
+Fetches citation metadata dynamically from Dataverse when possible.
+}
 \examples{
 \dontrun{
-# Get text citation
-cite_dataset("iptu_sp", year = 2024)
+# Get text citation using alias
+cite_dataset("iptu_sp")
+
+# Get text citation using DOI
+cite_dataset("10.60873/FK2/7IXFPX")
 
 # Get BibTeX entry
 cite_dataset("pemob", format = "bibtex")

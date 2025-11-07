@@ -21,7 +21,7 @@ get_dataverse_server <- function(metadata = NULL) {
   }
 
   # Default to Insper's Dataverse
-  return("dataverse.insper.edu.br")
+  return("dataverse.datascience.insper.edu.br")
 }
 
 
@@ -167,16 +167,15 @@ check_for_updates <- function(metadata, year = NULL) {
 #' print(info$title)
 #' print(info$files)
 #' }
-get_dataset_info <- function(dataset_id, year = NULL) {
-  # Get local metadata
-  metadata <- get_metadata(dataset_id)
+get_dataset_info <- function(dataset_id, year = NULL, server = NULL) {
+  # Resolve identifier to DOI
+  resolved <- resolve_identifier(dataset_id)
+  doi <- resolved$doi
 
-  # Validate request
-  validate_dataset_request(dataset_id, year)
-
-  # Get Dataverse info
-  server <- get_dataverse_server(metadata)
-  doi <- get_doi(metadata, year)
+  # Get server
+  if (is.null(server)) {
+    server <- Sys.getenv("DATAVERSE_SERVER", unset = "dataverse.datascience.insper.edu.br")
+  }
 
   cli::cli_alert_info("Fetching info from {.url {server}} for {.val {doi}}")
 
@@ -187,14 +186,22 @@ get_dataset_info <- function(dataset_id, year = NULL) {
     # Extract relevant information
     info <- list(
       id = dataset_id,
-      title = metadata$title,
       doi = doi,
       server = server,
       year = year,
       dataverse_version = dv_info$data$latestVersion$versionNumber %||% "unknown",
-      publication_date = dv_info$data$publicationDate %||% "unknown",
-      local_metadata = metadata
+      publication_date = dv_info$data$publicationDate %||% "unknown"
     )
+
+    # Extract title from Dataverse metadata if available
+    if (!is.null(dv_info$data$latestVersion$metadataBlocks$citation$fields)) {
+      title_field <- dv_info$data$latestVersion$metadataBlocks$citation$fields[
+        dv_info$data$latestVersion$metadataBlocks$citation$fields$typeName == "title",
+      ]
+      if (nrow(title_field) > 0) {
+        info$title <- title_field$value[1]
+      }
+    }
 
     # Get file list if available
     if (!is.null(dv_info$data$latestVersion$files)) {
@@ -208,16 +215,87 @@ get_dataset_info <- function(dataset_id, year = NULL) {
   }, error = function(e) {
     cli::cli_alert_danger("Could not fetch Dataverse info: {e$message}")
 
-    # Return local metadata only
+    # Return minimal info on error
     return(list(
       id = dataset_id,
-      title = metadata$title,
       doi = doi,
       server = server,
       year = year,
-      local_metadata = metadata,
       error = e$message
     ))
+  })
+}
+
+
+#' List files available in a dataset
+#'
+#' Lists all files available in a Dataverse dataset without downloading them.
+#' Useful for exploring multi-file datasets before downloading.
+#'
+#' @param dataset Character. Dataset identifier (DOI, alias, or metadata ID)
+#' @param server Character. Dataverse server URL (optional)
+#'
+#' @return A data.frame with file information (filename, size, type, etc.)
+#' @export
+#'
+#' @examples
+#' \dontrun{
+#' # List files using DOI
+#' list_files("10.60873/FK2/7IXFPX")
+#'
+#' # List files using alias
+#' list_files("iptu_sp")
+#' }
+list_files <- function(dataset, server = NULL) {
+  # Resolve identifier to DOI
+  resolved <- resolve_identifier(dataset)
+  doi <- resolved$doi
+
+  # Get server
+  if (is.null(server)) {
+    server <- Sys.getenv("DATAVERSE_SERVER", unset = "dataverse.datascience.insper.edu.br")
+  }
+
+  cli::cli_alert_info("Fetching file list from {.url {server}} for {.val {doi}}")
+
+  tryCatch({
+    # Get dataset metadata
+    dataset_info <- dataverse::get_dataset(doi, server = server)
+
+    # Extract files
+    if (!is.null(dataset_info$data$latestVersion$files)) {
+      files <- dataset_info$data$latestVersion$files
+
+      # Clean up and format output
+      result <- data.frame(
+        filename = files$dataFile$filename %||% files$filename %||% NA,
+        size_mb = round((files$dataFile$filesize %||% files$filesize %||% 0) / 1024^2, 2),
+        content_type = files$dataFile$contentType %||% files$contentType %||% NA,
+        description = files$description %||% NA,
+        stringsAsFactors = FALSE
+      )
+
+      cli::cli_alert_success("Found {nrow(result)} file(s)")
+      return(result)
+    } else {
+      cli::cli_alert_warning("No files found in dataset")
+      return(data.frame(
+        filename = character(0),
+        size_mb = numeric(0),
+        content_type = character(0),
+        description = character(0),
+        stringsAsFactors = FALSE
+      ))
+    }
+
+  }, error = function(e) {
+    stop(
+      "Failed to list files from Dataverse:\n",
+      "  Server: ", server, "\n",
+      "  DOI: ", doi, "\n",
+      "  Error: ", e$message,
+      call. = FALSE
+    )
   })
 }
 
