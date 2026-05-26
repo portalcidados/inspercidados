@@ -514,65 +514,6 @@ ggplot(data, aes(x = year, y = value)) +
    - Author: Nick Huntington-Klein
    - Causal inference with R examples
 
-### Brazilian Data Resources
-
-- **[IPEA Data](http://www.ipeadata.gov.br/)**: Economic indicators
-- **[IBGE](https://www.ibge.gov.br/)**: Census and surveys
-- **[CEM USP](https://centrodametropole.fflch.usp.br/)**: Metropolitan data
-- **[Seade](https://www.seade.gov.br/)**: São Paulo statistics
-- **[DataSUS](https://datasus.saude.gov.br/)**: Health data
-
----
-
-## Reproducibility Checklist
-
-### Before Starting Your Project
-
-- [ ] Create a new RStudio project
-- [ ] Initialize git repository
-- [ ] Set up renv: `renv::init()`
-- [ ] Create folder structure
-- [ ] Write initial README
-- [ ] Set up .gitignore
-
-### During Development
-
-- [ ] Commit code regularly with meaningful messages
-- [ ] Document data sources
-- [ ] Comment complex code sections
-- [ ] Create functions for repeated tasks
-- [ ] Update renv: `renv::snapshot()`
-
-### Data Management
-
-- [ ] Keep raw data immutable
-- [ ] Document all transformations
-- [ ] Create codebook for variables
-- [ ] Version control processed data
-- [ ] Validate data quality
-
-### Analysis
-
-- [ ] Set random seed for reproducibility
-- [ ] Save intermediate results
-- [ ] Create analysis notebooks
-- [ ] Document model specifications
-
-### Before Publishing
-
-- [ ] Clean and organize all scripts
-- [ ] Test full pipeline from scratch
-- [ ] Update documentation
-- [ ] Create replication instructions
-- [ ] Archive data and code (Dataverse)
-- [ ] Generate DOI for citation
-
-### Collaboration
-
-- [ ] Use consistent coding style
-- [ ] Review code with colleagues
-- [ ] Document dependencies clearly
-
 ---
 
 ## Quick Start Template
@@ -606,7 +547,7 @@ create_project <- function(project_name) {
 
   # Install packages
   install.packages(c(
-    "tidyverse", "data.table", "fixest", "modelsummary",
+    "tidyverse", "fixest", "modelsummary",
     "sf", "arrow", "janitor", "here"
   ))
 
@@ -617,16 +558,3 @@ create_project <- function(project_name) {
 # Use it:
 create_project("housing_analysis_sp")
 ```
----
-
-## Support
-
-For questions about these guidelines or urban data science at Insper:
-
-- **Email**: cidades@insper.edu.br
-- **Office Hours**: Schedule at [link]
-- **Workshops**: Check calendar for R training sessions
-
----
-
-*Last updated: 2025-01-10 | Version 1.0*

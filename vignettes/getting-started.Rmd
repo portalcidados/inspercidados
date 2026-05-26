@@ -1,0 +1,156 @@
+---
+title: "Getting Started"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Getting Started}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse  = TRUE,
+  comment   = "#>",
+  eval      = FALSE
+)
+```
+
+`inspercidados` provides access to curated Brazilian urban datasets produced by
+[Insper Cidades](https://www.insper.edu.br) and hosted on Insper's Dataverse.
+The package is a thin wrapper around the
+[`dataverse`](https://CRAN.R-project.org/package=dataverse) package.
+
+## Installation
+
+```{r install}
+# Install from GitHub (development version)
+remotes::install_github("portalcidados/inspercidados")
+```
+
+## Discovering datasets
+
+`list_datasets()` returns a tibble of all available datasets.
+The search is local — no network call is made.
+
+```{r list}
+library(inspercidados)
+
+# All datasets
+ds <- list_datasets()
+ds
+
+# Search by keyword, theme, or region
+ds <- list_datasets("Mobilidade")
+ds
+
+# Use dplyr or base R to filter further
+subset(ds, grepl("Mobilidade", theme, ignore.case = TRUE))
+```
+
+The tibble has columns `alias`, `title`, `description`, `theme`, `region`,
+`keywords`, and `doi`.
+Use the `alias` column as the identifier in all other functions.
+
+## Downloading a dataset
+
+`get_dataset()` downloads data directly into R.
+It accepts an **alias**, a bare **DOI**, or a full **DOI URL**.
+
+```{r download-alias}
+# Easiest: use the alias
+embarques <- get_dataset("embarques_mensais")
+embarques
+```
+
+```{r download-doi}
+# Equivalent: use the DOI
+embarques <- get_dataset("10.60873/FK2/BPYHFB")
+```
+
+```{r download-url}
+# Or the full DOI URL
+embarques <- get_dataset("https://doi.org/10.60873/FK2/BPYHFB")
+```
+
+When a dataset contains multiple files you can narrow down the selection:
+
+```{r download-filters}
+# Filter by year (matches year anywhere in the filename)
+iptu_2024 <- get_dataset("iptu_sp", year = 2024)
+
+# Request a specific file by exact name
+iptu_geo <- get_dataset("iptu_sp", filename = "iptu_2024.gpkg")
+
+# Use a regex pattern
+iptu_geo <- get_dataset("iptu_sp", file_pattern = "\\.gpkg$")
+```
+
+## Downloading with documentation
+
+By default `get_dataset()` returns only the data.
+Set `docs = TRUE` to also retrieve the variable documentation.
+When an Excel documentation file (`documentacao_*.xlsx`) is present in the
+dataset, it is downloaded automatically; otherwise Dataverse metadata is
+returned instead.
+
+```{r download-docs}
+result <- get_dataset("embarques_mensais", docs = TRUE)
+
+# The dataset
+result$data
+
+# The documentation (tibble from xlsx, or list of metadata fields)
+result$docs
+```
+
+## Spatial datasets
+
+Datasets that contain spatial data (geometries) require the `sf` package.
+The package will warn you if `sf` is not loaded when you request a spatial
+dataset.
+
+```{r spatial}
+library(sf)
+
+alvaras <- get_dataset("alvaras_sp", file_pattern = "\\.gpkg$")
+plot(sf::st_geometry(alvaras))
+```
+
+## Citing a dataset
+
+`cite_dataset()` fetches author and publication metadata from Dataverse and
+formats a citation. Three formats are supported.
+
+```{r cite}
+# Plain text (default)
+cite_dataset("embarques_mensais")
+
+# BibTeX — paste into your .bib file
+cite_dataset("embarques_mensais", format = "bibtex")
+
+# RIS — import into Zotero, Mendeley, or EndNote
+cite_dataset("embarques_mensais", format = "ris")
+```
+
+## Getting the companion R script
+
+Some datasets come with companion R scripts. `get_script()` downloads a script
+and opens it in your editor. Two types are available:
+
+- **`"analysis"`** (default): a getting-started script demonstrating common
+  analyses with the dataset.
+- **`"replication"`**: the production pipeline that generated the dataset.
+  Provided for transparency and reproducibility; requires internal resources
+  and cannot be run by external users.
+
+```{r script}
+# Opens the analysis script in your editor (default)
+get_script("embarques_mensais")
+
+# Opens the replication script (how the data was produced)
+get_script("embarques_mensais", type = "replication")
+
+# Download only (do not open)
+path <- get_script("embarques_mensais", open = FALSE)
+source(path)
+```
