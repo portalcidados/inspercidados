@@ -2,42 +2,34 @@
 % Please edit documentation in R/cite_dataset.R
 \name{cite_dataset}
 \alias{cite_dataset}
-\title{Generate citation for a dataset}
+\title{Generate a citation for a dataset}
 \usage{
-cite_dataset(name, year = NULL, format = "text", server = NULL)
+cite_dataset(dataset, format = c("text", "bibtex", "ris"))
 }
 \arguments{
-\item{name}{Character. Dataset identifier (DOI, alias, or metadata ID)}
+\item{dataset}{A dataset identifier: alias, bare DOI, or DOI URL
+(see \code{\link[=get_dataset]{get_dataset()}} for details).}
 
-\item{year}{Numeric. Year of the dataset (optional, used for title)}
-
-\item{format}{Character. Citation format: "text", "bibtex", or "ris"}
-
-\item{server}{Character. Dataverse server URL (optional)}
+\item{format}{Citation format. One of \code{"text"} (default), \code{"bibtex"},
+or \code{"ris"}.}
 }
 \value{
-Character. Citation string in the requested format
+A character string containing the formatted citation (invisible).
 }
 \description{
-Creates a properly formatted citation for a dataset from the Insper Cidades
-collection. Supports multiple citation formats (text, BibTeX, RIS).
-}
-\details{
-Fetches citation metadata dynamically from Dataverse when possible.
+Fetches metadata from Insper Dataverse and returns a formatted citation.
+The citation is printed to the console and returned invisibly as a character
+string.
 }
 \examples{
 \dontrun{
-# Get text citation using alias
+# Plain-text citation
 cite_dataset("iptu_sp")
 
-# Get text citation using DOI
-cite_dataset("10.60873/FK2/7IXFPX")
+# BibTeX
+cite_dataset("iptu_sp", format = "bibtex")
 
-# Get BibTeX entry
-cite_dataset("pemob", format = "bibtex")
-
-# Get RIS format for reference managers
-cite_dataset("iptu_sp", year = 2024, format = "ris")
+# RIS (Zotero, Mendeley, EndNote)
+cite_dataset("iptu_sp", format = "ris")
 }
-
 }

@@ -1,34 +1,40 @@
 Package: inspercidados
-Title: Standardized Access to Brazilian Urban Public Datasets
-Version: 0.1.0
-Authors@R:
-    c(person("Insper Cidades", role = c("aut", "cre", "cph"),
-             email = "cidades@insper.edu.br"),
-      person("Vinicius", "Reginatto", role = "ctb"))
-Description: Provides standardized, reproducible access to Brazilian public
-    datasets related to urban research. All datasets are processed by
-    researchers at Insper Cidades and made available through Dataverse.
-    The package enables researchers to download, cite, and use these datasets
-    with complete transparency and scientific reproducibility.
+Title: Access to Brazilian Urban Datasets from Insper Cidades
+Version: 0.2.0
+Authors@R: c(
+    person("Vinicius", "Reginatto", , "viniciusor@insper.edu.br", role = c("aut", "cre")),
+    person("Insper Cidades", role = c("cph", "fnd"))
+  )
+Description: A lightweight interface for discovering, downloading, and citing
+    curated Brazilian urban datasets hosted on Insper's Dataverse repository.
+    Provides three core functions: list_datasets() to browse available data,
+    get_dataset() to download data directly into R, and cite_dataset() to
+    generate properly formatted academic citations.
 License: MIT + file LICENSE
-URL: https://github.com/insper-cidades/inspercidados
-BugReports: https://github.com/insper-cidades/inspercidados/issues
+URL: https://github.com/portalcidados/inspercidados,
+    https://portalcidados.github.io/inspercidados
+BugReports: https://github.com/portalcidados/inspercidados/issues
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.3
 Depends:
-    R (>= 4.0.0)
+    R (>= 4.1.0)
 Imports:
-    arrow (>= 8.0.0),
     dataverse (>= 0.3.15),
-    jsonlite,
-    rappdirs,
     cli,
+    jsonlite,
     readr,
-    sf,
-    readxl
+    rlang,
+    tibble,
+    utils,
+    tools
 Suggests:
+    arrow (>= 8.0.0),
+    sf,
+    readxl,
+    rstudioapi,
     knitr,
     rmarkdown,
-    testthat (>= 3.0.0)
+    testthat (>= 3.0.0),
+    pkgdown
 VignetteBuilder: knitr

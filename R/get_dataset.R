@@ -1,292 +1,126 @@
-#' Get dataset from Insper Cidades collection
+#' Download a dataset from Insper Dataverse
 #'
-#' Downloads and loads datasets from the Insper Cidades collection via Dataverse.
-#' Data is automatically cached locally to avoid repeated downloads.
+#' Downloads a dataset into R as a tibble or `sf` object. The dataset can be
+#' identified by its short alias, bare DOI, or full DOI URL.
 #'
-#' Supports multiple file formats:
-#' - CSV files (standalone or in ZIP archives)
-#' - Parquet files (standalone or in ZIP archives)
-#' - GeoPackage files (GPKG) for spatial data
-#' - Excel files (XLSX)
-#' - ZIP archives containing any of the above
+#' When a dataset contains multiple files, the function selects one
+#' automatically using this priority order: RDS > CSV/TSV > other formats.
+#' Use `year`, `filename`, or `file_pattern` to override the default selection.
 #'
-#' Accepts multiple identifier types:
-#' - DOI (e.g., "10.60873/FK2/7IXFPX" or "doi:10.60873/FK2/7IXFPX")
-#' - Friendly alias (e.g., "iptu_sp", "pemob", "itbi_sp")
-#' - Legacy metadata ID (for backward compatibility)
+#' @param dataset A dataset identifier. One of:
+#'   - A short alias, e.g. `"iptu_sp"` (see [list_datasets()] for all aliases).
+#'   - A bare DOI, e.g. `"10.60873/FK2/TOXCRF"`.
+#'   - A full DOI URL, e.g. `"https://doi.org/10.60873/FK2/TOXCRF"`.
+#' @param year An integer or character year used to filter files when a dataset
+#'   contains multiple annual files (e.g. `year = 2023`).
+#' @param filename The exact filename to download from the dataset. Overrides
+#'   `year` and `file_pattern`.
+#' @param file_pattern A regex pattern matched against filenames. Applied after
+#'   `year` filtering.
+#' @param docs Logical. If `TRUE`, returns a named list with two elements:
+#'   `data` (the downloaded tibble/sf object) and `docs`. When the dataset
+#'   contains a file whose name starts with `"documentacao"` (e.g.
+#'   `"documentacao_iptu.xlsx"`), that file is downloaded and returned as a
+#'   tibble. Otherwise `docs` is a named list of metadata fetched from
+#'   Dataverse (title, description, authors, DOI, URL, year). Default is
+#'   `FALSE`.
 #'
-#' @param name Character. Dataset identifier (DOI, alias, or metadata ID)
-#' @param year Numeric. Year of the dataset (optional, used for filename matching)
-#' @param filename Character. Specific filename to download if dataset has multiple files
-#' @param file_pattern Character. Regex pattern to match files (useful for ZIP archives)
-#' @param file_type Character. Expected file type: "csv", "parquet", "gpkg", "xlsx" (optional)
-#' @param show_citation Logical. Display citation information after loading?
-#' @param force_download Logical. Force re-download even if cached?
-#' @param server Character. Dataverse server URL (optional, defaults to env var or Insper)
+#' @return When `docs = FALSE` (default): a [tibble][tibble::tibble] or `sf`
+#'   object with the `"doi"` attribute set. When `docs = TRUE`: a named list
+#'   with elements `data` and `docs`.
 #'
-#' @return A tibble (for CSV/Parquet/XLSX) or sf object (for GPKG)
-#'
+#' @export
 #' @examples
 #' \dontrun{
-#' # Using friendly alias
-#' data <- get_dataset("iptu_sp")
+#' # By alias
+#' iptu <- get_dataset("iptu_sp")
 #'
-#' # Using DOI directly
-#' data <- get_dataset("10.60873/FK2/7IXFPX")
+#' # By DOI
+#' iptu <- get_dataset("10.60873/FK2/TOXCRF")
 #'
-#' # Specify year for filename matching
-#' data_2024 <- get_dataset("mobility", year = 2024)
+#' # By DOI URL
+#' iptu <- get_dataset("https://doi.org/10.60873/FK2/TOXCRF")
 #'
-#' # Select specific file from ZIP using pattern
-#' trips <- get_dataset("mobility", file_pattern = "trips\\.csv$")
+#' # Filter to a specific year (for multi-year datasets)
+#' iptu_2023 <- get_dataset("iptu_sp", year = 2023)
 #'
-#' # Specify file type for better detection
-#' spatial <- get_dataset("boundaries", file_type = "gpkg")
+#' # Request a specific file by name
+#' geo <- get_dataset("iptu_sp", filename = "iptu_2024.gpkg")
 #'
-#' # Load with citation
-#' data <- get_dataset("iptu_sp", show_citation = TRUE)
+#' # Match files with a regex pattern
+#' trips <- get_dataset("pemob_anual", file_pattern = "trips\\.csv$")
 #'
-#' # Force re-download to get latest version
-#' data <- get_dataset("iptu_sp", force_download = TRUE)
+#' # Return data together with Dataverse metadata
+#' result <- get_dataset("iptu_sp", docs = TRUE)
+#' result$data
+#' result$docs
 #' }
-#'
-#' @export
-get_dataset <- function(name,
-                       year = NULL,
-                       filename = NULL,
-                       file_pattern = NULL,
-                       file_type = NULL,
-                       show_citation = FALSE,
-                       force_download = FALSE,
-                       server = NULL) {
+get_dataset <- function(dataset,
+                        year         = NULL,
+                        filename     = NULL,
+                        file_pattern = NULL,
+                        docs         = FALSE) {
+  doi     <- resolve_dataset(dataset)
+  doi_url <- doi_to_url(doi)
+  server  <- insper_server()
 
-  # Resolve identifier to DOI
-  resolved <- resolve_identifier(name)
-  doi <- resolved$doi
-  identifier_source <- resolved$source
-
-  cli::cli_h2("Loading dataset")
-  cli::cli_alert_info("Identifier: {.val {name}} ({identifier_source})")
-  cli::cli_alert_info("DOI: {.val {doi}}")
-
-  # Get server
-  if (is.null(server)) {
-    server <- Sys.getenv("DATAVERSE_SERVER", unset = "dataverse.datascience.insper.edu.br")
+  # Warn early if the dataset is flagged as spatial and sf is not installed.
+  reg <- read_registry()
+  if (dataset %in% names(reg) && isTRUE(reg[[dataset]][["is_spatial"]])) {
+    if (!rlang::is_installed("sf")) {
+      cli::cli_warn(c(
+        "Dataset {.val {dataset}} contains spatial data.",
+        "i" = "Load {.pkg sf} for full functionality: {.run library(sf)}"
+      ))
+    }
   }
 
-  # Get dataset metadata from Dataverse to find available files
-  cli::cli_alert_info("Fetching dataset metadata from Dataverse...")
-  dataset_info <- tryCatch({
-    dataverse::get_dataset(doi, server = server)
-  }, error = function(e) {
-    stop(
-      "Failed to fetch dataset metadata from Dataverse:\n",
-      "  DOI: ", doi, "\n",
-      "  Server: ", server, "\n",
-      "  Error: ", e$message,
-      call. = FALSE
-    )
-  })
+  cli::cli_inform(c("i" = "Fetching file list for {.val {doi}}"))
+  files      <- dataverse::dataset_files(doi_url, server = server)
+  file_names <- vapply(files, function(f) f[["label"]], character(1))
 
-  # Extract files
-  if (is.null(dataset_info$data$latestVersion$files) ||
-      length(dataset_info$data$latestVersion$files) == 0) {
-    stop("No files found in dataset ", doi, call. = FALSE)
-  }
-
-  files <- dataset_info$data$latestVersion$files
-
-  # Select target file intelligently
-  target_file <- select_target_file(
-    files = files,
-    filename = filename,
-    year = year,
-    file_pattern = file_pattern,
-    identifier = name
+  target <- select_dv_file(
+    file_names,
+    year         = year,
+    filename     = filename,
+    file_pattern = file_pattern
   )
+  ftype <- detect_file_type(target)
 
-  target_filename <- target_file$dataFile$filename
-  target_content_type <- target_file$dataFile$contentType %||% NA
-
-  # Detect file type
-  detected_type <- detect_file_type(target_filename, target_content_type)
-  cli::cli_alert_info("Detected file type: {.strong {detected_type}}")
-
-  # Construct cache file path
-  cache_dir <- get_cache_dir()
-  cache_filename <- gsub("[^a-zA-Z0-9._-]", "_", target_filename)
-  file_path <- file.path(cache_dir, cache_filename)
-
-  # Download if needed
-  if (!file.exists(file_path) || force_download) {
-    if (force_download && file.exists(file_path)) {
-      cli::cli_alert_info("Force download requested, clearing cache")
-      unlink(file_path)
-    }
-
-    cli::cli_alert_info("Downloading from {.url {server}}")
-    cli::cli_alert_info("File: {.file {target_filename}}")
-
-    # Ensure cache directory exists
-    if (!dir.exists(cache_dir)) {
-      dir.create(cache_dir, recursive = TRUE)
-    }
-
-    # Download using dataverse package (raw file download)
-    tryCatch({
-      # Use get_file for raw download (works for all formats)
-      dataverse::get_file(
-        file = target_filename,
-        dataset = doi,
-        server = server,
-        original = TRUE
-      )
-
-      # Move downloaded file to cache
-      temp_file <- target_filename
-      if (file.exists(temp_file)) {
-        file.rename(temp_file, file_path)
-      } else {
-        stop("Download succeeded but file not found in working directory")
-      }
-
-      cli::cli_alert_success("Downloaded {.file {target_filename}}")
-
-    }, error = function(e) {
-      stop(
-        "Failed to download from Dataverse:\n",
-        "  Server: ", server, "\n",
-        "  DOI: ", doi, "\n",
-        "  File: ", target_filename, "\n",
-        "  Error: ", e$message,
-        call. = FALSE
-      )
-    })
-  } else {
-    cli::cli_alert_info("Using cached file: {.file {basename(file_path)}}")
-  }
-
-  # Read data based on file type
-  cli::cli_h3("Reading data")
-
-  data <- tryCatch({
-    if (detected_type == "zip") {
-      # Handle ZIP archive
-      handle_zip_archive(file_path, file_pattern, file_type)
-    } else {
-      # Handle standalone file
-      read_file_auto(file_path, file_type %||% detected_type)
-    }
-  }, error = function(e) {
-    stop(
-      "Failed to read file:\n",
-      "  File: ", target_filename, "\n",
-      "  Type: ", detected_type, "\n",
-      "  Error: ", e$message,
-      call. = FALSE
-    )
-  })
-
-  # Show citation if requested
-  if (show_citation) {
-    cat("\n")
-    cite_dataset(name, format = "text")
-    cat("\n")
-  }
-
-  # Add attributes for traceability
-  attr(data, "source") <- "inspercidados"
-  attr(data, "dataset") <- name
+  cli::cli_inform(c("i" = "Downloading {.val {target}}"))
+  data <- read_dv_file(target, doi_url, server, ftype)
   attr(data, "doi") <- doi
-  attr(data, "filename") <- target_filename
-  attr(data, "year") <- year
-  attr(data, "download_date") <- file.info(file_path)$mtime
 
-  # Report success
-  if (inherits(data, "sf")) {
-    cli::cli_alert_success(
-      "Loaded spatial data: {.val {nrow(data)}} features, {.val {ncol(data)}} columns"
-    )
-  } else if (is.data.frame(data)) {
-    cli::cli_alert_success(
-      "Loaded {.val {nrow(data)}} rows and {.val {ncol(data)}} columns"
-    )
-  } else if (is.list(data)) {
-    cli::cli_alert_success(
-      "Loaded list with {.val {length(data)}} objects"
-    )
-  }
+  if (!docs) return(data)
 
-  return(data)
-}
+  # Prefer a "documentacao*.xlsx" file in the dataset over Dataverse metadata.
+  doc_file <- file_names[
+    grepl("^documentacao", file_names, ignore.case = TRUE) &
+      tools::file_ext(tolower(file_names)) %in% c("xlsx", "xls")
+  ]
 
-#' Get cache directory
-#'
-#' Returns the cache directory for inspercidados datasets.
-#' Can be configured via INSPERCIDADOS_CACHE_DIR environment variable.
-#'
-#' @return Character. Path to cache directory
-#' @noRd
-get_cache_dir <- function() {
-  # Check for custom cache directory
-  custom_dir <- Sys.getenv("INSPERCIDADOS_CACHE_DIR", unset = "")
-
-  if (custom_dir != "" && nzchar(custom_dir)) {
-    cache_dir <- custom_dir
+  if (length(doc_file) > 0) {
+    cli::cli_inform(c("i" = "Loading documentation from {.val {doc_file[[1]]}}"))
+    rlang::check_installed("readxl", reason = "to read documentation files")
+    raw <- dataverse::get_file_by_name(doc_file[[1]], dataset = doi_url, server = server)
+    ext <- tools::file_ext(tolower(doc_file[[1]]))
+    tmp <- tempfile(fileext = paste0(".", ext))
+    on.exit(unlink(tmp), add = TRUE)
+    writeBin(raw, tmp)
+    docs_out <- readxl::read_excel(tmp)
   } else {
-    # Use standard user cache directory
-    cache_dir <- rappdirs::user_cache_dir("inspercidados", "Insper")
+    cli::cli_inform(c("i" = "Fetching documentation from Dataverse metadata"))
+    meta    <- dataverse::get_dataset(doi_url, server = server)
+    fields  <- meta$data$latestVersion$metadataBlocks$citation$fields
+    docs_out <- list(
+      title       = extract_field(fields, "title"),
+      description = extract_field(fields, "dsDescriptionValue"),
+      authors     = extract_authors(fields),
+      doi         = doi,
+      url         = paste0("https://doi.org/", doi),
+      year        = extract_year(meta)
+    )
   }
 
-  if (!dir.exists(cache_dir)) {
-    dir.create(cache_dir, recursive = TRUE)
-  }
-
-  return(cache_dir)
-}
-
-#' List cached datasets
-#'
-#' @export
-list_cached_datasets <- function() {
-  cache_dir <- get_cache_dir()
-  files <- list.files(cache_dir, pattern = "\\.parquet$", full.names = TRUE)
-  
-  if (length(files) == 0) {
-    message("No cached datasets found.")
-    return(invisible(NULL))
-  }
-  
-  info <- file.info(files)
-  data.frame(
-    dataset = gsub("\\.parquet$", "", basename(files)),
-    size_mb = round(info$size / 1024^2, 2),
-    cached_on = info$mtime,
-    stringsAsFactors = FALSE
-  )
-}
-
-#' Clear cache
-#'
-#' @param dataset Optional. Specific dataset to clear, or NULL for all
-#' @export
-clear_cache <- function(dataset = NULL) {
-  cache_dir <- get_cache_dir()
-  
-  if (is.null(dataset)) {
-    # Clear all
-    files <- list.files(cache_dir, pattern = "\\.parquet$", full.names = TRUE)
-    if (length(files) > 0) {
-      unlink(files)
-      message("Cleared ", length(files), " cached dataset(s).")
-    }
-  } else {
-    # Clear specific dataset
-    pattern <- paste0("^", dataset, "(_\\d{4})?\\.parquet$")
-    files <- list.files(cache_dir, pattern = pattern, full.names = TRUE)
-    if (length(files) > 0) {
-      unlink(files)
-      message("Cleared ", length(files), " cached file(s) for dataset '", dataset, "'.")
-    }
-  }
+  list(data = data, docs = docs_out)
 }

@@ -2,82 +2,78 @@
 % Please edit documentation in R/get_dataset.R
 \name{get_dataset}
 \alias{get_dataset}
-\title{Get dataset from Insper Cidades collection}
+\title{Download a dataset from Insper Dataverse}
 \usage{
 get_dataset(
-  name,
+  dataset,
   year = NULL,
   filename = NULL,
   file_pattern = NULL,
-  file_type = NULL,
-  show_citation = FALSE,
-  force_download = FALSE,
-  server = NULL
+  docs = FALSE
 )
 }
 \arguments{
-\item{name}{Character. Dataset identifier (DOI, alias, or metadata ID)}
+\item{dataset}{A dataset identifier. One of:
+\itemize{
+\item A short alias, e.g. \code{"iptu_sp"} (see \code{\link[=list_datasets]{list_datasets()}} for all aliases).
+\item A bare DOI, e.g. \code{"10.60873/FK2/TOXCRF"}.
+\item A full DOI URL, e.g. \code{"https://doi.org/10.60873/FK2/TOXCRF"}.
+}}
 
-\item{year}{Numeric. Year of the dataset (optional, used for filename matching)}
+\item{year}{An integer or character year used to filter files when a dataset
+contains multiple annual files (e.g. \code{year = 2023}).}
 
-\item{filename}{Character. Specific filename to download if dataset has multiple files}
+\item{filename}{The exact filename to download from the dataset. Overrides
+\code{year} and \code{file_pattern}.}
 
-\item{file_pattern}{Character. Regex pattern to match files (useful for ZIP archives)}
+\item{file_pattern}{A regex pattern matched against filenames. Applied after
+\code{year} filtering.}
 
-\item{file_type}{Character. Expected file type: "csv", "parquet", "gpkg", "xlsx" (optional)}
-
-\item{show_citation}{Logical. Display citation information after loading?}
-
-\item{force_download}{Logical. Force re-download even if cached?}
-
-\item{server}{Character. Dataverse server URL (optional, defaults to env var or Insper)}
+\item{docs}{Logical. If \code{TRUE}, returns a named list with two elements:
+\code{data} (the downloaded tibble/sf object) and \code{docs}. When the dataset
+contains a file whose name starts with \code{"documentacao"} (e.g.
+\code{"documentacao_iptu.xlsx"}), that file is downloaded and returned as a
+tibble. Otherwise \code{docs} is a named list of metadata fetched from
+Dataverse (title, description, authors, DOI, URL, year). Default is
+\code{FALSE}.}
 }
 \value{
-A tibble (for CSV/Parquet/XLSX) or sf object (for GPKG)
+When \code{docs = FALSE} (default): a \link[tibble:tibble]{tibble} or \code{sf}
+object with the \code{"doi"} attribute set. When \code{docs = TRUE}: a named list
+with elements \code{data} and \code{docs}.
 }
 \description{
-Downloads and loads datasets from the Insper Cidades collection via Dataverse.
-Data is automatically cached locally to avoid repeated downloads.
+Downloads a dataset into R as a tibble or \code{sf} object. The dataset can be
+identified by its short alias, bare DOI, or full DOI URL.
 }
 \details{
-Supports multiple file formats:
-\itemize{
-\item CSV files (standalone or in ZIP archives)
-\item Parquet files (standalone or in ZIP archives)
-\item GeoPackage files (GPKG) for spatial data
-\item Excel files (XLSX)
-\item ZIP archives containing any of the above
-}
-
-Accepts multiple identifier types:
-\itemize{
-\item DOI (e.g., "10.60873/FK2/7IXFPX" or "doi:10.60873/FK2/7IXFPX")
-\item Friendly alias (e.g., "iptu_sp", "pemob", "itbi_sp")
-\item Legacy metadata ID (for backward compatibility)
-}
+When a dataset contains multiple files, the function selects one
+automatically using this priority order: RDS > CSV/TSV > other formats.
+Use \code{year}, \code{filename}, or \code{file_pattern} to override the default selection.
 }
 \examples{
 \dontrun{
-# Using friendly alias
-data <- get_dataset("iptu_sp")
+# By alias
+iptu <- get_dataset("iptu_sp")
 
-# Using DOI directly
-data <- get_dataset("10.60873/FK2/7IXFPX")
+# By DOI
+iptu <- get_dataset("10.60873/FK2/TOXCRF")
 
-# Specify year for filename matching
-data_2024 <- get_dataset("mobility", year = 2024)
+# By DOI URL
+iptu <- get_dataset("https://doi.org/10.60873/FK2/TOXCRF")
 
-# Select specific file from ZIP using pattern
-trips <- get_dataset("mobility", file_pattern = "trips\\\\.csv$")
+# Filter to a specific year (for multi-year datasets)
+iptu_2023 <- get_dataset("iptu_sp", year = 2023)
 
-# Specify file type for better detection
-spatial <- get_dataset("boundaries", file_type = "gpkg")
+# Request a specific file by name
+geo <- get_dataset("iptu_sp", filename = "iptu_2024.gpkg")
 
-# Load with citation
-data <- get_dataset("iptu_sp", show_citation = TRUE)
+# Match files with a regex pattern
+trips <- get_dataset("pemob_anual", file_pattern = "trips\\\\.csv$")
 
-# Force re-download to get latest version
-data <- get_dataset("iptu_sp", force_download = TRUE)
+# Return data together with Dataverse metadata
+result <- get_dataset("iptu_sp", docs = TRUE)
+result$data
+result$docs
 }
-
 }
